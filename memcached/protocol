@@ -1,0 +1,43 @@
+存储命令
+send:     command key flag exptime bytes\r\n   5
+recv:     data\r\n                             1
+
+set/add/replace/append/prepend/cas
+
+
+取回命令
+send:     get key\r\n                          2
+recv:     value key flag bytes\r\n             4
+
+
+删除命令
+send:     delete key time\r\n                  3
+recv:     data\r\n                             1
+
+
+增加/减少命令
+send:     incr/decr key value\r\n              3
+recv:     value                                1
+
+
+状态命令
+send:     stats\r\n                            1
+recv:     stats <args>                         3(多组)
+<args>:
+STAT name value
+STAT name value
+STAT name value
+STAT name value
+...
+END\r\n
+
+
+其他命令
+send:     flush_all number                     2
+recv:     OK\r\n                               1
+
+send:     version\r\n                          1
+recv:     VERSION value\r\n                    2
+
+send:     quit\r\n                             1
+recv:

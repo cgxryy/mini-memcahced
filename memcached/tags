@@ -1,0 +1,146 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+CXX	Makefile	/^CXX = g++ -std=c++11$/;"	m
+C_FLAGS	Makefile	/^C_FLAGS = -c -g -Wall -Iinclude $/;"	m
+C_OBJECTS	Makefile	/^C_OBJECTS = $(patsubst %.cpp, %.o, $(C_SOURCES))$/;"	m
+C_SOURCES	Makefile	/^C_SOURCES = $(shell find . -name "*.cpp")$/;"	m
+Conn	conn.cpp	/^Conn::Conn(struct ev_loop* loop, int socketfd, enum conn_states state_init, int event_flag, int read_len) : $/;"	f	class:Conn
+Conn	conn.h	/^class Conn{$/;"	c
+Item	conn.cpp	/^Item::Item(struct ev_loop* loop, int socketfd, enum conn_states state_init, int event_flag) : $/;"	f	class:Item
+Item	conn.h	/^class Item {$/;"	c
+MEM_CONN_H_	conn.h	17;"	d
+MEM_MEMCACHED_H_	memcached.h	17;"	d
+MEM_SETTINGS_H_	settings.h	17;"	d
+MEM_SLAB_H_	slab.h	17;"	d
+MEM_SOCKET_H_	socket.h	19;"	d
+MEM_THREADSAFE_QUEUE_	threadsafe_queue.h	18;"	d
+MEM_THREAD_H_	thread.h	17;"	d
+MODEL_LOCAL	settings.h	20;"	d
+MODEL_NET	settings.h	19;"	d
+NREAD_ADD	conn.h	34;"	d
+NREAD_APPEND	conn.h	37;"	d
+NREAD_CAS	conn.h	39;"	d
+NREAD_PREPEND	conn.h	38;"	d
+NREAD_REPLACE	conn.h	36;"	d
+NREAD_SET	conn.h	35;"	d
+Para	Makefile	/^Para = -pthread -lev$/;"	m
+READBUF_LEN	conn.h	31;"	d
+READ_DATA_RECEIVED	thread.h	30;"	d
+READ_ERROR	thread.h	32;"	d
+READ_MEMORY_ERROR	thread.h	33;"	d
+READ_NO_DATA_RECEIVED	thread.h	31;"	d
+Slab	slab.h	/^class Slab {$/;"	c
+SlabItem	slab.h	/^class SlabItem {$/;"	c
+Socket	socket.h	/^    Socket() {$/;"	f	class:Socket
+Socket	socket.h	/^    Socket(int net_or_local, struct settings* setting) {$/;"	f	class:Socket
+Socket	socket.h	/^class Socket {$/;"	c
+WRITEBUF_LEN	conn.h	32;"	d
+WorkThread	thread.h	/^    WorkThread(){}$/;"	f	class:WorkThread
+WorkThread	thread.h	/^class WorkThread {$/;"	c
+backlog	settings.h	/^    int     backlog;\/\/listen backlog$/;"	m	struct:settings
+base_loop	conn.h	/^    struct ev_loop* base_loop;$/;"	m	class:Conn	typeref:struct:Conn::ev_loop
+base_loop	conn.h	/^    struct ev_loop* base_loop;$/;"	m	class:Item	typeref:struct:Item::ev_loop
+base_loop	thread.h	/^    struct ev_loop *base_loop;$/;"	m	class:WorkThread	typeref:struct:WorkThread::ev_loop
+bytes	slab.h	/^    int bytes;$/;"	m	class:SlabItem
+c_socket	socket.h	/^    int c_socket() { return sfd; }$/;"	f	class:Socket
+command_five_para	conn.cpp	/^void Conn::command_five_para(std::vector<std::string>& tokens) {$/;"	f	class:Conn
+command_one_para	conn.cpp	/^void Conn::command_one_para(std::vector<std::string>& tokens) {$/;"	f	class:Conn
+command_three_para	conn.cpp	/^void Conn::command_three_para(std::vector<std::string>& tokens) {$/;"	f	class:Conn
+command_two_para	conn.cpp	/^void Conn::command_two_para(std::vector<std::string>& tokens) {$/;"	f	class:Conn
+conn_closed	conn.h	/^    conn_closed,$/;"	e	enum:conn_states
+conn_handler	conn.cpp	/^static void conn_handler(struct ev_loop *loop, struct ev_io *watcher, int revents) {$/;"	f	file:
+conn_listening	conn.h	/^    conn_listening,$/;"	e	enum:conn_states
+conn_nread	conn.h	/^    conn_nread,$/;"	e	enum:conn_states
+conn_parse_cmd	conn.h	/^    conn_parse_cmd,$/;"	e	enum:conn_states
+conn_read	conn.h	/^    conn_read,$/;"	e	enum:conn_states
+conn_readhandler	thread.cpp	/^static void conn_readhandler(struct ev_loop *loop, struct ev_io *watcher, int revents) {$/;"	f	file:
+conn_state_set	conn.cpp	/^void Conn::conn_state_set(enum conn_states new_state) {$/;"	f	class:Conn
+conn_states	conn.h	/^enum conn_states {$/;"	g
+conn_waiting	conn.h	/^    conn_waiting,$/;"	e	enum:conn_states
+conn_write	conn.h	/^    conn_write,$/;"	e	enum:conn_states
+data_cond	threadsafe_queue.h	/^    std::condition_variable data_cond;$/;"	m	class:threadsafe_queue
+data_queue	threadsafe_queue.h	/^    std::queue<T> data_queue;$/;"	m	class:threadsafe_queue
+dispatch_conn_new	conn.cpp	/^void Conn::dispatch_conn_new(int sfd, enum conn_states new_state, int event_flag) {$/;"	f	class:Conn
+drive_machine	conn.cpp	/^void Conn::drive_machine(){$/;"	f	class:Conn
+empty	threadsafe_queue.h	/^    bool empty(){$/;"	f	class:threadsafe_queue
+exptime	slab.h	/^    std::string exptime;$/;"	m	class:SlabItem
+fds	thread.h	/^    int fds[2];$/;"	m	class:WorkThread
+flag	conn.h	/^    int             flag;$/;"	m	class:Conn
+flag	conn.h	/^    int flag;$/;"	m	class:Item
+flag	slab.h	/^    std::string flag;$/;"	m	class:SlabItem
+flag_stop	conn.h	/^    bool            flag_stop;$/;"	m	class:Conn
+item	conn.h	/^    SlabItem*   item;$/;"	m	class:Conn
+item_queue	thread.h	/^    threadsafe_queue<Item> item_queue;$/;"	m	class:WorkThread
+key	slab.h	/^    std::string key;$/;"	m	class:SlabItem
+last_threadid	memcached.h	/^int last_threadid = -1;$/;"	v
+main	memcached.cpp	/^int main(int argc, char** argv) {$/;"	f
+main_ev_init	memcached.cpp	/^void main_ev_init(WorkThread& main_thread) {$/;"	f
+mut	threadsafe_queue.h	/^    mutable std::mutex mut;$/;"	m	class:threadsafe_queue
+net_or_local	settings.h	/^    int     net_or_local;$/;"	m	struct:settings
+noreply	conn.h	/^    bool            noreply;$/;"	m	class:Conn
+nread_cmd	conn.h	/^    short       nread_cmd;$/;"	m	class:Conn
+num_threads	settings.h	/^    int     num_threads;$/;"	m	struct:settings
+operator =	conn.cpp	/^Item& Item::operator= (Item& temp) {$/;"	f	class:Item
+out_string	conn.cpp	/^void Conn::out_string(const char* w_str) {$/;"	f	class:Conn
+port	settings.h	/^    int     port;$/;"	m	struct:settings
+process_command	conn.cpp	/^void Conn::process_command() {$/;"	f	class:Conn
+push	threadsafe_queue.h	/^    void push(T new_value){$/;"	f	class:threadsafe_queue
+rbuf	conn.h	/^    char*       rbuf;$/;"	m	class:Conn
+rbuf_end	conn.h	/^    char*       rbuf_end;$/;"	m	class:Conn
+rbuf_len	conn.h	/^    int         rbuf_len;$/;"	m	class:Conn
+rbuf_now	conn.h	/^    char*       rbuf_now;$/;"	m	class:Conn
+rbuf_rlen	conn.h	/^    int         rbuf_rlen;$/;"	m	class:Conn
+read_value_stored	conn.cpp	/^void Conn::read_value_stored() {$/;"	f	class:Conn
+read_watcher	conn.h	/^    ev_io read_watcher;$/;"	m	class:Conn
+read_watcher	thread.h	/^    ev_io read_watcher;$/;"	m	class:WorkThread
+rnbuf	conn.h	/^    char*       rnbuf;$/;"	m	class:Conn
+rnbuf_end	conn.h	/^    char*       rnbuf_end;$/;"	m	class:Conn
+rnbuf_len	conn.h	/^    int         rnbuf_len;$/;"	m	class:Conn
+rnbuf_now	conn.h	/^    char*       rnbuf_now;$/;"	m	class:Conn
+rnbuf_rlen	conn.h	/^    int         rnbuf_rlen;$/;"	m	class:Conn
+set_nonblock	socket.cpp	/^bool Socket::set_nonblock(int* socketfd) {$/;"	f	class:Socket
+set_reuse_linger_keepalive	socket.cpp	/^int Socket::set_reuse_linger_keepalive(int socketfd, int* flag) {$/;"	f	class:Socket
+setting	memcached.h	/^struct settings setting;$/;"	v	typeref:struct:settings
+settings	settings.h	/^struct settings {$/;"	s
+setup_thread	thread.cpp	/^void WorkThread::setup_thread() {$/;"	f	class:WorkThread
+sfd	conn.h	/^    int             sfd;$/;"	m	class:Conn
+sfd	conn.h	/^    int sfd;$/;"	m	class:Item
+sfd	socket.h	/^    int sfd;$/;"	m	class:Socket
+slab_list	slab.h	/^    std::vector<SlabItem*> slab_list;$/;"	m	class:Slab
+slablist	memcached.h	/^Slab slablist;$/;"	v
+socket_init	memcached.cpp	/^void socket_init(WorkThread& main_thread, struct settings *setting) {$/;"	f
+socket_tcp	socket.cpp	/^void Socket::socket_tcp(struct settings* setting) {$/;"	f	class:Socket
+socket_unix	socket.cpp	/^void Socket::socket_unix(struct settings* setting) {$/;"	f	class:Socket
+state	conn.h	/^    conn_states     state;$/;"	m	class:Conn
+state	conn.h	/^    enum conn_states state;$/;"	m	class:Item	typeref:enum:Item::conn_states
+thread_init	memcached.cpp	/^void thread_init(int num_worker_thread, WorkThread& dispatch_thread) {$/;"	f
+thread_libev_process	thread.cpp	/^void WorkThread::thread_libev_process() {$/;"	f	class:WorkThread
+threadsafe_queue	threadsafe_queue.h	/^    threadsafe_queue()$/;"	f	class:threadsafe_queue
+threadsafe_queue	threadsafe_queue.h	/^    threadsafe_queue(threadsafe_queue const& other){$/;"	f	class:threadsafe_queue
+threadsafe_queue	threadsafe_queue.h	/^class threadsafe_queue$/;"	c
+try_pop	threadsafe_queue.h	/^    bool try_pop(T& value){$/;"	f	class:threadsafe_queue
+try_pop	threadsafe_queue.h	/^    std::shared_ptr<T> try_pop(){$/;"	f	class:threadsafe_queue
+try_read_command	conn.cpp	/^int Conn::try_read_command() {$/;"	f	class:Conn
+try_read_tcp	conn.cpp	/^int Conn::try_read_tcp() {$/;"	f	class:Conn
+unix_file	socket.h	/^    char* unix_file;$/;"	m	class:Socket
+unix_filename	settings.h	/^    char*   unix_filename;$/;"	m	struct:settings
+value	slab.h	/^    std::string value;$/;"	m	class:SlabItem
+wait_and_pop	threadsafe_queue.h	/^    std::shared_ptr<T> wait_and_pop(){$/;"	f	class:threadsafe_queue
+wait_and_pop	threadsafe_queue.h	/^    void wait_and_pop(T& value){$/;"	f	class:threadsafe_queue
+wbuf	conn.h	/^    char*       wbuf;$/;"	m	class:Conn
+wbuf_end	conn.h	/^    char*       wbuf_end;$/;"	m	class:Conn
+wbuf_len	conn.h	/^    int         wbuf_len;$/;"	m	class:Conn
+wbuf_now	conn.h	/^    char*       wbuf_now;$/;"	m	class:Conn
+wbuf_wlen	conn.h	/^    int         wbuf_wlen;$/;"	m	class:Conn
+work_libev	thread.cpp	/^void WorkThread::work_libev() {$/;"	f	class:WorkThread
+work_thread	thread.cpp	/^void WorkThread::work_thread(struct ev_loop* loop) {$/;"	f	class:WorkThread
+workthread_thread_libev_process	thread.cpp	/^static void workthread_thread_libev_process(struct ev_loop* loop, struct ev_io *watcher, int revents) {$/;"	f	file:
+workthreads	memcached.h	/^std::vector<WorkThread*> workthreads;$/;"	v
+write_activate_read	conn.cpp	/^void Conn::write_activate_read() {$/;"	f	class:Conn
+write_watcher	conn.h	/^    ev_io write_watcher;$/;"	m	class:Conn
+~Conn	conn.h	/^    ~Conn()$/;"	f	class:Conn
+~WorkThread	thread.h	/^    ~WorkThread(){}$/;"	f	class:WorkThread
