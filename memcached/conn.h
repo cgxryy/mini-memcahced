@@ -79,16 +79,20 @@ public:
     int             sfd;
     struct ev_loop* base_loop;
     conn_states     state;
-    int             flag;
+    int             flag;       //
     bool            noreply;
-    bool            flag_stop;
+    bool            flag_stop;  //退出状态机drive_machine
+    bool            flag_precmd;//为真时，上个命令是存储类命令
+    bool            flag_shake; //当一次读入过多，导致把键值都读了，或者读了两次命令，这个用来区分两者
 
-    char*       rbuf;
-    char*       rbuf_end;
-    char*       rbuf_now;
-    int         rbuf_len;
-    int         rbuf_rlen;
+    //缓存区:相关第一行命令,关于key的读取
+    char*       rbuf;       //缓存区地址
+    char*       rbuf_end;   //空间尾部
+    char*       rbuf_now;   //当前读入位置
+    int         rbuf_len;   //总长度
+    int         rbuf_rlen;  //已读长度
     
+    //缓存区:存储时用到的第二行命令,关于value读取
     char*       rnbuf;
     char*       rnbuf_end;
     char*       rnbuf_now;
@@ -98,6 +102,7 @@ public:
     SlabItem*   item;
     short       nread_cmd;
 
+    //缓存区:返回客户端的写入缓存区
     char*       wbuf;
     char*       wbuf_end;
     char*       wbuf_now;
@@ -131,7 +136,7 @@ public:
     void command_three_para(std::vector<std::string>& tokens);
     void command_five_para(std::vector<std::string>& tokens);
     void conn_close(); //析构函数取代
-    void conn_shake(char* end_cmd, int value_len);
+    void conn_shake(char* end_cmd, char* temp_end, int value_len);
 };
 
 extern Slab slablist;

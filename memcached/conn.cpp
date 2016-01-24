@@ -152,7 +152,8 @@ void Conn::drive_machine(){
                 if (try_read_command() == 0) {
                     conn_state_set(conn_waiting);
                 }
-                flag_stop = true;    
+                if (!flag_shake)//如果处理过颤动数据，这次不退出循环
+                    flag_stop = true;    
 
                 break;
             
@@ -198,6 +199,7 @@ void Conn::drive_machine(){
                 break;
 
             case conn_waiting:
+                conn_state_set(conn_read);
                 flag_stop = true;
                 break;
 
@@ -212,6 +214,7 @@ void Conn::drive_machine(){
 */
         }
     }
+    flag_stop = false;
 }
 
 void Conn::conn_close() {
@@ -228,8 +231,8 @@ void Conn::dispatch_conn_new(int sfd, enum conn_states new_state, int event_flag
 
     WorkThread* thread_chosen = workthreads[threadid];
 
-    //每次申请新空间，比原始做法增加了消耗
-    //原做法是构造item，在回调函数再构造conn
+    //每次申请新空间，比原始做法增加了一点消耗
+    //做法是构造item，在回调函数再构造conn
     Item item(thread_chosen->base_loop, sfd, new_state, event_flag);
     thread_chosen->item_queue.push(item);
 
@@ -242,11 +245,24 @@ void Conn::dispatch_conn_new(int sfd, enum conn_states new_state, int event_flag
 int Conn::try_read_command() {
     char *endflag;
     char* endp;
+    
     if (rbuf_rlen == 0)
         return 0;
     
     endflag = (char*)memchr((void*)rbuf, '\n', rbuf_rlen);
+    if (endflag == 0) {
+        std::cout << "rbuf:" << rbuf << std::endl;
+        std::cout << "rbuf_len" << rbuf_len << std::endl;
+        std::cout << "rbuf_rlen" << rbuf_rlen << std::endl;
+    }
+
+    if (endflag + 1 != 0) {
+        if (*(endflag + 1) != '\0')
+            flag_shake = true;
+        else flag_shake = false;
+    }
     if (!endflag) {
+        //以防有大量无效字符阻塞服务器
         if (rbuf_rlen > 1024) {
             char* ptr = rbuf_now;
             while (*ptr == ' ') {
@@ -262,6 +278,7 @@ int Conn::try_read_command() {
     }
     
     endp = endflag + 1;
+
     if (endflag - rbuf_now > 1 && *(endflag - 1) == '\r') {
         endflag--;
     }
@@ -270,19 +287,51 @@ int Conn::try_read_command() {
     //检查是否多read了value的值，以及是否读完
     process_command();
     
-   // conn_shake(endflag, rbuf_rlen - (endflag - rbuf));
-    rbuf_rlen -= (endp - wbuf_now);
-    rbuf_now = endp;
+    if (flag_shake) {
+        //test
+        std::cout << "begin shaked" << std::endl;
+        conn_shake(rbuf, endp, rbuf_rlen - (endp - rbuf));
+    }
+    else {
+        if (rbuf_rlen != 0)
+            rbuf_rlen -= (endp - rbuf_now);
+        if (rbuf_now != rbuf)
+            rbuf_now = endp;
+    }
 
     return 1;
 }
+  
+void Conn::conn_shake(char* end_cmd, char* temp_end, int value_len) {
+    
+    char* end_value = (char*)memchr((void*)temp_end, '\r', value_len);
+    
+    if(end_value == 0)
+        return;
+    
+    std::cout << "enter conn_shake()" << std::endl;
+    std::cout << std::string(temp_end) << std::endl;
 
-void Conn::conn_shake(char* end_cmd, int value_len) {
- 
-    char* end_value = (char*)memchr((void*)end_cmd, value_len);
-    if (value_len == )
+    if (flag_precmd == true) {
+        memmove(rnbuf, temp_end, value_len-2);
+        *(rnbuf + value_len - 2) = '\0';
+        rnbuf_rlen = value_len - 2;
+        rnbuf_now = rnbuf;
+        conn_state_set(conn_nread);
+        flag_precmd = false;//这个标志位为真时，上个命令是存储类命令
+    }
+    else {
+        memmove(rbuf, temp_end, value_len);
+        *(rbuf + value_len) = '\0';
+        rbuf_now = rbuf;
+        rbuf_rlen = value_len;
+        conn_state_set(conn_parse_cmd);
+    }
+    flag_shake = true;//这里的标志位表明这次状态机不退出循环，继续解析
 
+    std::cout << std::string(rbuf) << std::endl;
 }
+
 
 void Conn::process_command() {
     //利用编译原理解析命令
@@ -295,7 +344,8 @@ void Conn::process_command() {
     
     std::vector<std::string> tokens;
     while (it != end) {
-        tokens.push_back(it->str());
+        tokens.push_back((it->str()));
+        std::cout << "pattern:" << it->str() << std::endl;
         it++;
     }
 
@@ -327,6 +377,15 @@ void Conn::process_command() {
              * 1.set/add/replace/append/prepend/cas
              */
             command_five_para(tokens);
+            flag_precmd = true;//表示这次命令是存储，后面可能会调整缓存区
+            break;
+        //什么命令都没有或者空数据状态
+        default:
+            memset(rbuf, '\0', rbuf_len);
+            rbuf_rlen = 0;
+            rbuf_now = rbuf;
+            conn_state_set(conn_read);
+            flag_precmd = false;
             break;
     }
     //暂时不管具体
@@ -399,6 +458,8 @@ int Conn::try_read_tcp() {
 
         int avail = rbuf_len - rbuf_rlen;
         ret = read(sfd, rbuf + rbuf_rlen, avail);
+        std::cout << "read count:" << ret << std::endl;
+        std::cout << "rbuf:" << rbuf << std::cout;
         if (ret > 0) {
             //stat状态变迁
             read_state = READ_DATA_RECEIVED;
@@ -433,22 +494,29 @@ void Conn::read_value_stored() {
         
     }
 
-    ret = read(sfd, rnbuf, rnbuf_len- rnbuf_rlen);
-    if (ret == 0) {
-        if (rnbuf_rlen != rnbuf_len) {
-            conn_state_set(conn_closed);
-            return;
+    /*如果颤动说明，值已经包含在上一次命令读取中了
+     * 需要把上一次的缓存区剩余部分拿出来存下即可
+     */
+    if (flag_shake) {
+    
+    }
+    else {
+        ret = read(sfd, rnbuf, rnbuf_len- rnbuf_rlen);
+        if (ret == 0) {
+            if (rnbuf_rlen != rnbuf_len) {
+                conn_state_set(conn_closed);
+                return;
+            }
+        }
+        else if (ret > 0) {
+            rnbuf_rlen += ret;
+        }
+        else if (ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;
+            }
         }
     }
-    else if (ret > 0) {
-        rnbuf_rlen += ret;
-    }
-    else if (ret < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return;
-        }
-    }
-
     if (rnbuf_len != rnbuf_rlen)
         return;
 
@@ -461,11 +529,11 @@ void Conn::read_value_stored() {
             item->value = rnbuf;
             memset(rnbuf, 0, rnbuf_len+3);
             memset(rbuf, 0, rbuf_len);
-            rnbuf_len = rnbuf_rlen = 0;
-            rbuf_len = rbuf_rlen = 0;
-            if (rnbuf != 0)
-                delete rnbuf;
-            out_string("STORED\r\n");
+            rnbuf_rlen = 0;
+            rbuf_rlen = 0;
+//            if (rnbuf != 0)
+//                delete rnbuf;
+            out_string("STORED");
 
             break;
         case NREAD_REPLACE:
@@ -505,6 +573,10 @@ int Conn::write_activate_read() {
             wbuf_now += ret;
             ret_state = WRITE_DATA_PART;
             if (ret == avail) {
+                wbuf_len = WRITEBUF_LEN;//恢复初始状态
+                memset((void*)wbuf, '\0', wbuf_len);
+                wbuf_wlen = 0;
+                wbuf_now = wbuf;
                 ev_io_stop(base_loop, &(write_watcher));
                 ev_io_set(&(read_watcher), sfd, EV_READ);
                 ev_io_start(base_loop, &(read_watcher));

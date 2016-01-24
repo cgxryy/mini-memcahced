@@ -10,7 +10,7 @@
 C_SOURCES = $(shell find . -name "*.cpp")
 C_OBJECTS = $(patsubst %.cpp, %.o, $(C_SOURCES))
 
-CXX = clang++ -std=c++11
+CXX = g++ -std=c++11
 Para = -pthread -lev
 C_FLAGS = -c -g -Wall -Iinclude 
 
