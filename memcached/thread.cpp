@@ -19,10 +19,6 @@
 #include <unistd.h>
 #include "thread.h"
 
-enum conn_states;
-class Item;
-class Conn;
-
 //兼容c++11的thread接口
 
 //为了兼容libev的回调函数接口

@@ -16,7 +16,7 @@ C_FLAGS = -c -g -Wall -Iinclude
 
 all: $(C_OBJECTS) 
 	@echo 链接 ...
-	$(CXX) $(C_OBJECTS) $(Para) -o memcached
+	$(CXX) $(C_OBJECTS) $(Para) -o memcachad
 
 .cpp.o:
 	@echo 编译代码文件 $< ...

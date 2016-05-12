@@ -32,7 +32,9 @@
 #define READ_ERROR              2
 #define READ_MEMORY_ERROR       3
 
-enum conn_states;
+enum conn_states : unsigned int;
+class Item;
+class Conn;
 
 class WorkThread {
 public:
@@ -59,7 +61,8 @@ private:
 };
 
 extern std::vector<WorkThread*> workthreads;
-extern int last_threadid;
-extern struct settings setting;
+
+extern int last_threadid; 
+//extern struct settings setting;
 
 #endif

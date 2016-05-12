@@ -20,12 +20,35 @@
 #define MODEL_LOCAL 0
 
 struct settings {
-    //...
+    //基本参数
+    int verbose;    //显示等级，越高，信息越详细
+
+    //网络架构参数
     int     num_threads;
     int     port;
     char*   unix_filename;
     int     net_or_local;
     int     backlog;//listen backlog
+
+    //slab相关参数
+    unsigned int chunk_size;
+    unsigned int item_size_max;
+    unsigned int oldest_live;
+
+    //LRU
+    int evict_to_free;
+    
+    settings() {
+        item_size_max = 1024 * 1024;
+        verbose = 2;
+        net_or_local = MODEL_NET;
+        chunk_size = 48;
+        backlog = 1024;
+        port = 11211;
+        oldest_live = 0;
+        num_threads = 4;
+        evict_to_free = 1;
+    }
 };
 
 #endif

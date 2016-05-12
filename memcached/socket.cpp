@@ -23,16 +23,16 @@
 #include <netinet/tcp.h>
 
 #include "socket.h"
-#include "thread.h"
+//#include "thread.h"
 
 class Conn;
 
-void Socket::socket_tcp(struct settings* setting) {
+void Socket::socket_tcp(struct settings* mem_setting) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
 
     addr.sin_family = PF_INET;
-    addr.sin_port = htons(setting->port);
+    addr.sin_port = htons(mem_setting->port);
     addr.sin_addr.s_addr = htons(INADDR_ANY);
 
     int error, flag = 1;
@@ -74,22 +74,22 @@ void Socket::socket_tcp(struct settings* setting) {
         exit(1);
     }
 
-    if (listen(sfd, setting->backlog) == -1) {
+    if (listen(sfd, mem_setting->backlog) == -1) {
         std::cerr << "listen error";
         close(sfd);
         exit(1);
     }
 }
 
-void Socket::socket_unix(struct settings* setting) {
-    int error, flag = 1;
+void Socket::socket_unix(struct settings* mem_setting) {
+    int flag = 1;
     struct sockaddr_un uaddr;
     memset(&uaddr, 0, sizeof(uaddr));
 
-    unlink(setting->unix_filename);
+    unlink(mem_setting->unix_filename);
     
     uaddr.sun_family = AF_UNIX;
-    strncpy(uaddr.sun_path, setting->unix_filename, strlen(setting->unix_filename));
+    strncpy(uaddr.sun_path, mem_setting->unix_filename, strlen(mem_setting->unix_filename));
 
     if ((sfd = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
         std::cerr << "unix socket error";
@@ -104,7 +104,7 @@ void Socket::socket_unix(struct settings* setting) {
         close(sfd);
     }
 
-    if (listen(sfd, setting->backlog) < 0) {
+    if (listen(sfd, mem_setting->backlog) < 0) {
         std::cerr << "listen unix socket error";
         close(sfd);
     }

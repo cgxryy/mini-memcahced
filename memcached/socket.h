@@ -25,19 +25,19 @@ public:
     static  int  set_reuse_linger_keepalive(int socketfd, int* flag);
     static  bool set_nonblock(int* socketfd);
     
-    Socket(int net_or_local, struct settings* setting) {
+    Socket(int net_or_local, struct settings* mem_setting) {
         if (net_or_local) {
-            socket_tcp(setting);
+            socket_tcp(mem_setting);
         }
         else {
-            socket_unix(setting);
+            socket_unix(mem_setting);
         }
     }
     
     Socket() {
-        struct settings setting;
-        setting.port = 11211;
-        socket_tcp(&setting);
+        struct settings mem_setting;
+        mem_setting.port = 11211;
+        socket_tcp(&mem_setting);
     }
 
     int c_socket() { return sfd; }
@@ -46,8 +46,8 @@ private:
     int sfd;
     char* unix_file;
 
-    void socket_unix(struct settings* setting);
-    void socket_tcp(struct settings* setting);
+    void socket_unix(struct settings* mem_setting);
+    void socket_tcp(struct settings* mem_setting);
 };
 
 #endif

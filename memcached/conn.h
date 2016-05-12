@@ -28,6 +28,11 @@
 
 #include "slab.h"
 
+#define KEY_MAX_LENGTH 250
+
+//最大淘汰时间一个月
+#define REALTIME_MAXDELTA 60*60*24*30
+
 #define READBUF_LEN 2048
 #define WRITEBUF_LEN 2048
 
@@ -37,15 +42,21 @@
 #define NREAD_APPEND    4
 #define NREAD_PREPEND   5
 #define NREAD_CAS       6
+#define NREAD_ERROR     7
 
 #define WRITE_DATA_ALL  1
 #define WRITE_DATA_PART 2
 #define WRITE_ERROR     3
 
-class SlabItem;
-class Slab;
 
-enum conn_states {
+struct base_item;
+class LRU_list;
+class Slab;
+struct slabclass;
+class HashTable;
+struct settings;
+
+enum conn_states : unsigned int {
     conn_listening,
 //  conn_new_cmd,
     conn_parse_cmd,
@@ -57,6 +68,7 @@ enum conn_states {
 //  conn_nwrite
 //  ...
 };
+
 
 //队列中的元素，为了工作线程产生Conn而不是在监听线程产生
 class Item {
@@ -99,8 +111,12 @@ public:
     int         rnbuf_len;
     int         rnbuf_rlen;
     
-    SlabItem*   item;
-    short       nread_cmd;
+
+    base_item*   item;
+    short       cmd;
+
+    //CAS操作
+    uint64_t cas;
 
     //缓存区:返回客户端的写入缓存区
     char*       wbuf;
@@ -123,7 +139,8 @@ public:
 
     void conn_state_set(enum conn_states new_state);
     void out_string(const char* w_str);
-    
+    void nread_stat_set(std::string& command);
+
     void drive_machine();
     int  try_read_command();
     void process_command();//返回值为value的长度
@@ -134,11 +151,17 @@ public:
     void command_one_para(std::vector<std::string>& tokens);
     void command_two_para(std::vector<std::string>& tokens);
     void command_three_para(std::vector<std::string>& tokens);
-    void command_five_para(std::vector<std::string>& tokens);
+    void command_five_six_para(std::vector<std::string>& tokens, bool cas);
     void conn_close(); //析构函数取代
     void conn_shake(char* end_cmd, char* temp_end, int value_len);
 };
 
-extern Slab slablist;
+//辅助工具函数
+unsigned int realtime(const time_t exptime);
 
+//用到的数据
+extern Slab* slab;
+extern LRU_list lru_list;
+
+extern time_t process_started;
 #endif

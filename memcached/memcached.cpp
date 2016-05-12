@@ -17,17 +17,17 @@
 
 void main_ev_init(WorkThread& main_thread);
 void thread_init(int num_worker_thread, WorkThread& dispatch_thread);
-void socket_init(WorkThread& main_thread, struct settings* setting);
+void socket_init(WorkThread& main_thread, struct settings* mem_setting);
 
 int main(int argc, char** argv) {
     
     int result = 0;
  
     //全局主体数据或配置数据
-    setting.num_threads = 1;
-    setting.port = 11211;
-    setting.net_or_local = MODEL_NET;
-    setting.backlog = 1024;
+    mem_setting.num_threads = 1;
+    mem_setting.port = 11211;
+    mem_setting.net_or_local = MODEL_NET;
+    mem_setting.backlog = 1024;
 
     WorkThread dispatch_thread;         //分发任务并accept的主线程
 
@@ -43,12 +43,12 @@ int main(int argc, char** argv) {
     //slab初始化
 
     //启动工作线程
-    thread_init(setting.num_threads, dispatch_thread);
+    thread_init(mem_setting.num_threads, dispatch_thread);
     
     //配置套接字
     //0.Unix本地套接字
     //1.Tcp套接字
-    socket_init(dispatch_thread, &setting);
+    socket_init(dispatch_thread, &mem_setting);
     
     //存储线程
     
@@ -84,14 +84,14 @@ void thread_init(int num_worker_thread, WorkThread& dispatch_thread) {
     }
 }
 
-void socket_init(WorkThread& main_thread, struct settings *setting) {
+void socket_init(WorkThread& main_thread, struct settings *mem_setting) {
     
-    if (setting->net_or_local) {
-        Socket* tcp_socket = new Socket(MODEL_NET, setting);
+    if (mem_setting->net_or_local) {
+        Socket* tcp_socket = new Socket(MODEL_NET, mem_setting);
         Conn* listen_conn = new Conn(main_thread.base_loop, tcp_socket->c_socket(), conn_listening, EV_READ, 1);
     }
     else {
-        Socket* unix_socket = new Socket(MODEL_LOCAL, setting);
+        Socket* unix_socket = new Socket(MODEL_LOCAL, mem_setting);
         Conn* listen_conn = new Conn(main_thread.base_loop, unix_socket->c_socket(), conn_listening, EV_READ, 1);
     }
 }

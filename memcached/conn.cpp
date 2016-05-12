@@ -15,9 +15,22 @@
  */
 #include "conn.h"
 #include "thread.h"
+#include "tool.h"
 
 #include <cstdlib>
-//class WorkThread;
+
+//辅助函数
+unsigned int realtime(const time_t exptime) {
+    if (exptime == 0)
+        return 0;
+    if (exptime > REALTIME_MAXDELTA) {
+        if (exptime <= process_started)
+            return 1u;
+        return (unsigned int)(exptime - process_started);
+    } else {
+        return (unsigned int)(exptime + current_time());
+    }
+}
 
 /*
  *  线程队列元素相关
@@ -53,6 +66,23 @@ static void conn_handler(struct ev_loop *loop, struct ev_io *watcher, int revent
 
 void Conn::conn_state_set(enum conn_states new_state) {
     state = new_state;
+}
+
+void Conn::nread_stat_set(std::string& command) {
+    if (command == std::string("set"))
+        cmd = NREAD_SET;
+    else if (command == std::string("add"))
+        cmd = NREAD_ADD;
+    else if (command == std::string("replace"))
+        cmd = NREAD_REPLACE;
+    else if (command == std::string("append"))
+        cmd = NREAD_APPEND;
+    else if (command == std::string("prepend"))
+        cmd = NREAD_PREPEND;
+    else if (command == std::string("cas"))
+        cmd = NREAD_CAS;
+    else
+        cmd = NREAD_ERROR;
 }
 
 Conn::Conn(struct ev_loop* loop, int socketfd, enum conn_states state_init, int event_flag, int read_len) : 
@@ -113,7 +143,7 @@ void Conn::drive_machine(){
     socklen_t addrlen;
     struct sockaddr_storage addr;
     int accept_sfd;
-    int fd_flags = 1;
+    //int fd_flags = 1;
     int res, ret;
 
     while(!flag_stop) {
@@ -227,7 +257,7 @@ void Conn::conn_close() {
 void Conn::dispatch_conn_new(int sfd, enum conn_states new_state, int event_flag) {
     char buf[1];
 
-    int threadid = (last_threadid + 1) % setting.num_threads;
+    int threadid = (last_threadid + 1) % mem_setting.num_threads;
 
     WorkThread* thread_chosen = workthreads[threadid];
 
@@ -376,9 +406,14 @@ void Conn::process_command() {
             /*
              * 1.set/add/replace/append/prepend/cas
              */
-            command_five_para(tokens);
+            command_five_six_para(tokens, false);
             flag_precmd = true;//表示这次命令是存储，后面可能会调整缓存区
             break;
+
+        case 6:
+            command_five_six_para(tokens, true);
+            break;
+
         //什么命令都没有或者空数据状态
         default:
             memset(rbuf, '\0', rbuf_len);
@@ -390,36 +425,146 @@ void Conn::process_command() {
     }
     //暂时不管具体
     //使用模拟返回
-
 }
 
 void Conn::command_one_para(std::vector<std::string>& tokens) {
 }
+
+//get
 void Conn::command_two_para(std::vector<std::string>& tokens) {
+    const char* key = tokens[1].c_str();
+    size_t nkey = tokens[1].length();
+    //int i = 0;
+    int ntotal;
+    base_item* it;
+
+    if (nkey > KEY_MAX_LENGTH) {
+        out_string("CLIENT_ERROR bad command line format");
+        return;
+    }
+
+    it = lru_list.item_get(key, nkey);
+    //VALUE key flag bytes\r\nvalue
+    ntotal = 5 + it->nkey + sizeof(it->item_flag) + sizeof(it->nbytes) + 2 + it->nbytes;
+    if (ntotal > wbuf_len) {
+        delete[] wbuf;
+        wbuf = new (std::nothrow) char[ntotal];
+        if (wbuf == 0) {
+            out_string("SERVER_ERROR memory is full");
+            wbuf_len = 0;
+            return;
+        }
+        wbuf_len = ntotal;
+    }
+    
+    int move = 0;
+    memcpy(wbuf, "VALUE ", 6);
+    move += 6;
+    memcpy(wbuf + move, it->data, it->nkey);
+    move += it->nkey;
+    sprintf(wbuf + move, " %u %u %d\r\n", it->item_flag, it->exptime, it->nbytes);
+    char* end = strchr(wbuf, '\r');
+    move = end + 2 - wbuf;
+    memcpy(wbuf + move, it->data + it->nkey + 1, it->nbytes);
+    move += it->nbytes;
+//    memcpy(wbuf + move, "\r\n", 3);
+    conn_state_set(conn_write);
+    
+    ev_io_stop(base_loop, &(read_watcher));
+    ev_io_set(&(write_watcher), sfd, EV_WRITE);
+    ev_io_start(base_loop, &(write_watcher));
+    //...
+    //\0
+
+    //out_string(wbuf);
+    return;
 }
 void Conn::command_three_para(std::vector<std::string>& tokens) {
 }
-void Conn::command_five_para(std::vector<std::string>& tokens) {
-    //这里代码是暂时的，先用set试试
-    if (tokens[0] == std::string("set")) {
-        SlabItem* temp = new SlabItem();
-        temp->key = tokens[1];
-        temp->flag = tokens[2];
-        temp->exptime = tokens[3];
-        temp->bytes = atoi(tokens[4].c_str());
-        slablist.slab_list.push_back(temp);
-        conn_state_set(conn_nread);
-        nread_cmd = NREAD_SET;
-        item = temp;
 
-        rnbuf_len = temp->bytes;
-        rnbuf = new (std::nothrow) char[rnbuf_len+3];//value + "\r\n" + \0
-        if (rnbuf == 0) {
-            std::cerr << "rnbuf malloc error";
-        }
-        rnbuf_end = rnbuf + rnbuf_len;
-        rnbuf_now = rnbuf;
+//set/add/append/prepend...
+//command key flag exptime bytes cas
+//0       1   2    3       4     5
+void Conn::command_five_six_para(std::vector<std::string>& tokens, bool cas) {
+    size_t nkey;
+    uint32_t flags;
+    int32_t exptime_int = 0;
+    unsigned int exptime;
+    int vlen;
+    uint64_t cas_id;
+
+    //设置NREAD状态
+    nread_stat_set(tokens[0]);
+
+    //检查key长度是否超出限制
+    if (tokens[1].length() > KEY_MAX_LENGTH) {
+        out_string("CLIENT_ERROR bad command line format");
+        return;
     }
+
+    //保存key的内容和大小
+    const char *key = tokens[1].c_str();
+    nkey = tokens[1].length();
+
+    if (! (safe_strtoul(tokens[2].c_str(), &flags)
+                && safe_strtol(tokens[3].c_str(), &exptime_int)
+                && safe_strtol(tokens[4].c_str(), &vlen))) {
+        out_string("CLIENT_ERROR bad command line format");
+        return;
+    }
+
+    //预防淘汰时间出现负值
+    if (exptime_int < 0)
+        exptime = REALTIME_MAXDELTA - 1;
+    
+    if (cas) {
+        if (!safe_strtoull(tokens[5].c_str(), &cas_id)) {
+            out_string("CLIENT_ERROR bad command line format");
+            return;
+        }
+    }
+
+    vlen += 2;//包括\r\n
+    if (vlen < 0 || vlen -2 < 0) {
+        out_string("CLIENT_ERROR bad command line format");
+        return;
+    }
+
+    item = lru_list.item_alloc(key, nkey, flags, realtime(exptime), vlen);
+
+    if (item == 0) {
+        if (base_item::item_size_ok(nkey, flags, vlen))
+            out_string("SERVER_ERROR out of memory storing object");
+        else 
+            out_string("SERVER_ERROR object too large for cache");
+            
+        //这里没有保存当前连接接受的value大小
+        if (cmd == NREAD_SET) {
+            item = lru_list.item_get(key, nkey);
+            if (item) {
+                lru_list.item_unlink(item);
+                lru_list.item_remove(item);
+            }
+        }
+        return;
+    }
+    item->set_cas(cas_id);
+
+    item->nkey = nkey;
+    item->item_flag = flags;
+    item->exptime = exptime_int;
+    item->nbytes = vlen;
+    memcpy(item->data, key, nkey);
+
+    rnbuf_len = vlen;
+    rnbuf = new (std::nothrow) char[rnbuf_len+3];//value + "\r\n" + \0
+    if (rnbuf == 0) {
+        std::cerr << "rnbuf malloc error";
+    }
+    rnbuf_end = rnbuf + rnbuf_len;
+    rnbuf_now = rnbuf;
+    
+    conn_state_set(conn_nread);
 }
 
 int Conn::try_read_tcp() {
@@ -491,14 +636,12 @@ void Conn::read_value_stored() {
     
     //检查缓冲区起始位置
     if (rnbuf_len - rnbuf_rlen > 0) {
-        
     }
 
     /*如果颤动说明，值已经包含在上一次命令读取中了
      * 需要把上一次的缓存区剩余部分拿出来存下即可
      */
     if (flag_shake) {
-    
     }
     else {
         ret = read(sfd, rnbuf, rnbuf_len- rnbuf_rlen);
@@ -521,28 +664,30 @@ void Conn::read_value_stored() {
         return;
 
     //不同命令的分支实现
-    switch (nread_cmd) {
-        case NREAD_ADD:
-            break;
+    switch (cmd) {
         case NREAD_SET:
-            memcpy(rnbuf + rnbuf_len, "\r\n", 3);
-            item->value = rnbuf;
+        case NREAD_ADD:
+        case NREAD_REPLACE:
+        case NREAD_APPEND:
+        case NREAD_PREPEND:
+        case NREAD_CAS:
+
+            //memcpy(rnbuf + rnbuf_len, "\r\n", 3);
+            item->data[item->nkey] = '0';
+            memcpy(item->data + item->nkey + 1, rnbuf, rnbuf_len);
+            if (lru_list.store_item(item, this) != LRU_list::STORED) {
+                std::cerr << "store item failed..." << std::endl;
+                out_string("NOT_STORED");
+            }
+            
             memset(rnbuf, 0, rnbuf_len+3);
             memset(rbuf, 0, rbuf_len);
             rnbuf_rlen = 0;
             rbuf_rlen = 0;
-//            if (rnbuf != 0)
-//                delete rnbuf;
+            if (rnbuf != 0)
+                delete rnbuf;
             out_string("STORED");
 
-            break;
-        case NREAD_REPLACE:
-            break;
-        case NREAD_APPEND:
-            break;
-        case NREAD_PREPEND:
-            break;
-        case NREAD_CAS:
             break;
     }
 

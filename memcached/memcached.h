@@ -21,10 +21,36 @@
 #include "thread.h"
 #include "socket.h"
 
+class WorkThread;
+/*
+class WorkThread;
+class HashTable;
+class Slab;
+class LRU_list;
+struct Stats;
+*/
+
 //全局变量
-Slab slablist;
+//extern settings mem_setting;
+//extern time_t process_started;
+
+struct settings mem_setting;
+Slab* slab = new Slab(&mem_setting);
 std::vector<WorkThread*> workthreads;
 int last_threadid = -1;
-struct settings setting;
+ 
+//Stats stats;
+
+//append
+HashTable hashtable;
+LRU_list lru_list;
+time_t process_started = 0;
+volatile unsigned int current_time() {
+    time_t now;
+    time(&now);
+    return (unsigned int)now;
+}
+std::mutex cache_lock;
+unsigned int hashitems;
 
 #endif
