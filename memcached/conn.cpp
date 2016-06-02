@@ -182,8 +182,10 @@ void Conn::drive_machine(){
                 if (try_read_command() == 0) {
                     conn_state_set(conn_waiting);
                 }
-                if (!flag_shake)//如果处理过颤动数据，这次不退出循环
-                    flag_stop = true;    
+                if (!flag_shake)//如果处理过颤动数据，这次不退出循环;或者本次是退出命令,则退出
+                    flag_stop = true;
+                if (state == conn_closed)
+                    flag_stop = false;
 
                 break;
             
@@ -236,12 +238,8 @@ void Conn::drive_machine(){
             case conn_closed:
                 conn_close();
                 //调用析构函数
+                flag_stop = true;
                 break;
-/*
- *          case conn_nwrite:
-
-                break;
-*/
         }
     }
     flag_stop = false;
@@ -391,13 +389,12 @@ void Conn::process_command() {
         case 2:
             /*
              * 1.get key
-             * 2.flush_all number
+             * 2.delete key
              */
             command_two_para(tokens);
             break;
         case 3:
             /*
-             * 1.delete key time
              * 2.incr/decr key value
              */
             command_three_para(tokens);
@@ -428,10 +425,70 @@ void Conn::process_command() {
 }
 
 void Conn::command_one_para(std::vector<std::string>& tokens) {
+    
+    if (tokens[0] == std::string("quit")) {
+        conn_state_set(conn_closed);
+    }else if (tokens[0] == std::string("version")) {
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("CGXR MEMCACHE version 1.0");
+    }else {
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("CLIENT_BAD_COMMAND");
+    }
+
+}
+
+void Conn::command_two_para(std::vector<std::string>& tokens) {
+    if (tokens[0] == std::string("get")) {
+        get_command(tokens);
+    }else if (tokens[0] == std::string("delete")) {
+        delete_command(tokens);    
+    }else {
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("CLIENT_BAD_COMMAND");
+        return ;
+    }
+}
+
+void Conn::delete_command(std::vector<std::string>& tokens) {
+    const char* key = tokens[1].c_str();
+    size_t nkey = tokens[1].length();
+    
+    base_item* it = lru_list.item_get(key, nkey);
+    if (it) {
+        lru_list.item_unlink(it);
+        lru_list.item_remove(it);
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("DELETED");
+    }else {
+
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("NOT_FOUND");
+    }
 }
 
 //get
-void Conn::command_two_para(std::vector<std::string>& tokens) {
+void Conn::get_command(std::vector<std::string>& tokens) {
     const char* key = tokens[1].c_str();
     size_t nkey = tokens[1].length();
     //int i = 0;
@@ -444,6 +501,15 @@ void Conn::command_two_para(std::vector<std::string>& tokens) {
     }
 
     it = lru_list.item_get(key, nkey);
+    if (it == 0) {
+        memset(rbuf, 0, rbuf_len);
+        rbuf_rlen = 0;
+        ev_io_stop(base_loop, &(read_watcher));
+        ev_io_set(&(write_watcher), sfd, EV_WRITE);
+        ev_io_start(base_loop, &(write_watcher));
+        out_string("END");
+        return ;
+    }
     //VALUE key flag bytes\r\nvalue
     ntotal = 5 + it->nkey + sizeof(it->item_flag) + sizeof(it->nbytes) + 2 + it->nbytes;
     if (ntotal > wbuf_len) {
@@ -462,12 +528,13 @@ void Conn::command_two_para(std::vector<std::string>& tokens) {
     move += 6;
     memcpy(wbuf + move, it->data, it->nkey);
     move += it->nkey;
-    sprintf(wbuf + move, " %u %u %d\r\n", it->item_flag, it->exptime, it->nbytes);
-    char* end = strchr(wbuf, '\r');
-    move = end + 2 - wbuf;
+    sprintf(wbuf + move, " %u %d %lu\n", it->item_flag, it->nbytes, it->cas);
+    char* end = strchr(wbuf, '\n');
+    move = end + 1 - wbuf;
     memcpy(wbuf + move, it->data + it->nkey + 1, it->nbytes);
     move += it->nbytes;
-//    memcpy(wbuf + move, "\r\n", 3);
+    sprintf(wbuf + move, "END\r\n");
+    
     conn_state_set(conn_write);
     
     ev_io_stop(base_loop, &(read_watcher));
@@ -475,6 +542,10 @@ void Conn::command_two_para(std::vector<std::string>& tokens) {
     ev_io_start(base_loop, &(write_watcher));
     //...
     //\0
+
+    //后期清理工作
+    memset(rbuf, 0, rbuf_len);
+    rbuf_rlen = 0;
 
     //out_string(wbuf);
     return;
@@ -491,7 +562,7 @@ void Conn::command_five_six_para(std::vector<std::string>& tokens, bool cas) {
     int32_t exptime_int = 0;
     unsigned int exptime;
     int vlen;
-    uint64_t cas_id;
+    uint64_t cas_id = 0;
 
     //设置NREAD状态
     nread_stat_set(tokens[0]);
@@ -516,6 +587,7 @@ void Conn::command_five_six_para(std::vector<std::string>& tokens, bool cas) {
     //预防淘汰时间出现负值
     if (exptime_int < 0)
         exptime = REALTIME_MAXDELTA - 1;
+    else exptime = exptime_int;
     
     if (cas) {
         if (!safe_strtoull(tokens[5].c_str(), &cas_id)) {
@@ -552,7 +624,7 @@ void Conn::command_five_six_para(std::vector<std::string>& tokens, bool cas) {
 
     item->nkey = nkey;
     item->item_flag = flags;
-    item->exptime = exptime_int;
+    item->exptime = realtime(exptime);
     item->nbytes = vlen;
     memcpy(item->data, key, nkey);
 
@@ -670,14 +742,44 @@ void Conn::read_value_stored() {
         case NREAD_REPLACE:
         case NREAD_APPEND:
         case NREAD_PREPEND:
-        case NREAD_CAS:
-
             //memcpy(rnbuf + rnbuf_len, "\r\n", 3);
             item->data[item->nkey] = '0';
             memcpy(item->data + item->nkey + 1, rnbuf, rnbuf_len);
             if (lru_list.store_item(item, this) != LRU_list::STORED) {
                 std::cerr << "store item failed..." << std::endl;
+                memset(rnbuf, 0, rnbuf_len+3);
+                memset(rbuf, 0, rbuf_len);
+                rnbuf_rlen = 0;
+                rbuf_rlen = 0;
+                if (rnbuf != 0)
+                    delete rnbuf;
                 out_string("NOT_STORED");
+                break;
+            }
+        
+            memset(rnbuf, 0, rnbuf_len+3);
+            memset(rbuf, 0, rbuf_len);
+            rnbuf_rlen = 0;
+            rbuf_rlen = 0;
+            if (rnbuf != 0)
+                delete rnbuf;
+            out_string("STORED");
+
+            break;
+
+        case NREAD_CAS:
+            item->data[item->nkey] = '0';
+            memcpy(item->data + item->nkey + 1, rnbuf, rnbuf_len);
+            if (lru_list.store_item(item, this) != LRU_list::STORED) {
+                std::cerr << "store item failed..." << std::endl;
+                memset(rnbuf, 0, rnbuf_len+3);
+                memset(rbuf, 0, rbuf_len);
+                rnbuf_rlen = 0;
+                rbuf_rlen = 0;
+                if (rnbuf != 0)
+                    delete rnbuf;
+                out_string("EXISTS");
+                break;
             }
             
             memset(rnbuf, 0, rnbuf_len+3);

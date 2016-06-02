@@ -29,13 +29,14 @@ size_t base_item::item_total() {
 }
 
 void base_item::set_cas(uint64_t v) {
-    if (item_flag & Slab::ITEM_CAS) {
+//    if (item_flag & Slab::ITEM_CAS) {
         cas = v;
-    }
+//    }
 }
 
 uint64_t base_item::get_cas() {
-    return ((item_flag & Slab::ITEM_CAS) ? cas : (uint64_t)0);
+//    return ((item_flag & Slab::ITEM_CAS) ? cas : (uint64_t)0);
+    return cas;
 }
 
 slabclass::slabclass() {
@@ -692,14 +693,14 @@ int LRU_list::do_store_item(base_item* it, Conn* c, uint32_t hv) {
         if (old_it == 0) {
             store_stat = LRU_list::NOT_FOUND;
         }
-        if (it->get_cas() == old_it->get_cas()) {
+        if (it->cas == old_it->cas) {
             item_replace(old_it, it, hv);
             store_stat = LRU_list::STORED;
         }
         else {
             if (mem_setting.verbose > 1) {
                 std::cerr << "CAS: failure: expected " << old_it->get_cas() << " but got " 
-                    << it->get_cas();
+                    << it->cas;
             }
             store_stat = LRU_list::EXISTS;
         }
@@ -707,11 +708,11 @@ int LRU_list::do_store_item(base_item* it, Conn* c, uint32_t hv) {
     else {
         //与上面第二个判断不同，这里是旧的item存在的replace append prepend set命令
         if (c->cmd == NREAD_APPEND || c->cmd == NREAD_PREPEND) {
-            if (it->get_cas() != 0) {
-                if (it->get_cas() != old_it->get_cas()) {
-                    store_stat = LRU_list::EXISTS;
-                }
+            //if (it->cas != 0) {
+            if (it->cas != old_it->cas) {
+                store_stat = LRU_list::EXISTS;
             }
+            //}
 
             if (store_stat == LRU_list::NOT_STORED) {
                 new_it = do_item_alloc(key, it->nkey, flags, old_it->exptime, 
@@ -722,6 +723,13 @@ int LRU_list::do_store_item(base_item* it, Conn* c, uint32_t hv) {
                         do_item_remove(old_it);
                     return LRU_list::NOT_STORED;
                 }
+
+                new_it->nkey = old_it->nkey;
+                new_it->item_flag = flags;
+                new_it->exptime = old_it->exptime;
+                new_it->nbytes = it->nbytes + old_it->nbytes - 2;
+                memcpy(new_it->data, old_it->data, old_it->nkey);
+                new_it->data[old_it->nkey] = '0';
 
                 //copy数据
                 if (c->cmd == NREAD_APPEND) {
@@ -741,13 +749,13 @@ int LRU_list::do_store_item(base_item* it, Conn* c, uint32_t hv) {
         }
 
         if (store_stat == LRU_list::NOT_STORED) {
+            it->cas++;
             if (old_it != 0)
                 item_replace(old_it, it, hv);
             else 
                 //set a new key-value
                 do_item_link(it, hv);
 
-            c->cas = it->get_cas();
             store_stat = LRU_list::STORED;
         }
     }

@@ -11,7 +11,7 @@ recv:     value key flag bytes\r\n             4
 
 
 删除命令
-send:     delete key time\r\n                  3
+send:     delete key\r\n                       2
 recv:     data\r\n                             1
 
 

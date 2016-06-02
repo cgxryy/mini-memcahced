@@ -148,6 +148,9 @@ public:
     void read_value_stored();
     int  write_activate_read();
     void prepare_write_buf();
+
+    void get_command(std::vector<std::string>& tokens);
+    void delete_command(std::vector<std::string>& tokens);
     void command_one_para(std::vector<std::string>& tokens);
     void command_two_para(std::vector<std::string>& tokens);
     void command_three_para(std::vector<std::string>& tokens);
